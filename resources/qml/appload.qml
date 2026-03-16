@@ -196,7 +196,7 @@ Rectangle {
 
             Text {
                 anchors.fill: parent
-                text: "AppLoad"
+                text: qsTr("AppLoad")
                 font.pointSize: 40
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
