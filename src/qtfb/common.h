@@ -19,6 +19,8 @@
 #define MESSAGE_USERINPUT 4
 #define MESSAGE_SET_REFRESH_MODE 5
 #define MESSAGE_REQUEST_FULL_REFRESH 6
+#define MESSAGE_RECONFIGURE 7
+#define MESSAGE_SET_ALLOW_SCALING 8
 
 #define FBFMT_RM2FB 0
 #define FBFMT_RMPP_RGB888 1
@@ -107,6 +109,7 @@ namespace qtfb {
             struct InitMessageContents init;
             struct UpdateRegionMessageContents update;
             struct CustomInitMessageContents customInit;
+            struct CustomInitMessageContents reconfig;  // Reuse CustomInit for reconfigure
             // struct TerminateMessageContents terminate; - Terminate does not send any data.
             int refreshMode;
             // no full refresh - Force full refresh does not send any data.
