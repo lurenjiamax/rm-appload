@@ -269,6 +269,69 @@ static inline void safetyWaitForEventLoopToCatchUp() {
     std::this_thread::sleep_for(1s);
 }
 
+static int handleReconfigure(qtfb::management::ClientConnection *connection, qtfb::ClientMessage *inbound) {
+    SYNCHRONIZE;
+    qtfb::FBKey fbKey = connection->fbKey;
+
+    if(fbKey == -1) {
+        CERR << "Cannot reconfigure: connection not initialized!" << std::endl;
+        return RESP_ERR;
+    }
+
+    // Find and disconnect from current backend
+    auto position = qtfb::management::connections.find(fbKey);
+    if(position != qtfb::management::connections.end()) {
+        qtfb::management::ClientBackend *oldBackend = position->second;
+
+        // Remove this connection from the old backend
+        auto connPos = std::find(oldBackend->connections.begin(), oldBackend->connections.end(), connection);
+        if(connPos != oldBackend->connections.end()) {
+            oldBackend->connections.erase(connPos);
+        }
+
+        // If no more connections, destroy the old backend
+        if(oldBackend->connections.empty()) {
+            CERR << "Destroying old backend for fbKey " << fbKey << std::endl;
+            qtfb::management::connections.erase(position);
+            delete oldBackend;
+        } else {
+            CERR << "Other clients still connected, cannot reconfigure!" << std::endl;
+            return RESP_ERR;
+        }
+    }
+
+    // Create new backend with new parameters
+    qtfb::management::ClientBackend *newBackend = new qtfb::management::ClientBackend();
+    bool result = createSHM(newBackend,
+                            inbound->reconfig.framebufferType,
+                            inbound->reconfig.width,
+                            inbound->reconfig.height);
+
+    if(!result) {
+        delete newBackend;
+        return RESP_ERR;
+    }
+
+    // Send the new SHM key to the client
+    qtfb::ServerMessage outbound = {
+        .type = MESSAGE_INITIALIZE,
+        .init = {
+            .shmKeyDefined = newBackend->shmKey,
+            .shmSize = newBackend->shmSize,
+        },
+    };
+    SEND(outbound);
+
+    newBackend->connections.push_back(connection);
+    qtfb::management::connections[fbKey] = newBackend;
+
+    // Re-associate with the existing controller
+    tryToMatchUp(fbKey);
+
+    CERR << "Reconfigured fbKey " << fbKey << " to new settings" << std::endl;
+    return RESP_OK;
+}
+
 static void managementClientThread(int incomingFD) {
     qtfb::management::ClientConnection connection;
     connection.clientFD = incomingFD;
@@ -309,6 +372,23 @@ static void managementClientThread(int incomingFD) {
                 status = invokeOnConnectedFramebuffer(&connection, [=](auto controller) {
                     QMetaObject::invokeMethod(controller, [controller]() {
                         emit controller->requestFullRefresh();
+                    });
+                    safetyWaitForEventLoopToCatchUp();
+                    return RESP_OK;
+                });
+                break;
+            case MESSAGE_RECONFIGURE:
+                status = handleReconfigure(&connection, &inboundMessage);
+                break;
+            case MESSAGE_SET_ALLOW_SCALING:
+                status = invokeOnConnectedFramebuffer(&connection, [=](auto controller) {
+                    int scaling = inboundMessage.refreshMode;
+                    if(scaling > 1 || scaling < 0) {
+                        CERR << "The client tried to set allow scaling to an undefined value!" << std::endl;
+                        return RESP_ERR;
+                    }
+                    QMetaObject::invokeMethod(controller, [controller, scaling]() {
+                        controller->setAllowScaling(scaling != 0);
                     });
                     safetyWaitForEventLoopToCatchUp();
                     return RESP_OK;
