@@ -66,9 +66,9 @@ void appload::library::LoadedApplication::loadTranslations(const QString &forceL
     bool isLoaded = false;
     QString loadedPath = "";
 
-    if (m_appTranslator->load(targetLocale, appID, "_", fsDir)) {
+    if (m_appTranslator->load(targetLocale, appID, "_", translationsDir)) {
         isLoaded = true;
-        loadedPath = fsDir;
+        loadedPath = translationsDir;
     } else if (m_appTranslator->load(targetLocale, appID, "_", qrcAppDir)) {
         isLoaded = true;
         loadedPath = qrcAppDir;
