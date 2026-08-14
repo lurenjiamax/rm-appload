@@ -13,7 +13,6 @@ use std::ptr;
 use std::slice;
 
 pub mod constants {
-    pub const DEFAULT_SCENE: u32 = 245209899;
     pub const SOCKET_PATH: &str = "/tmp/qtfb.sock";
     pub const MESSAGE_INITIALIZE: u8 = 0;
     pub const MESSAGE_UPDATE: u8 = 1;
