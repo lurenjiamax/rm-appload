@@ -7,8 +7,8 @@ Item {
         UFast,
         Fast,
         Animate,
-        Content,
-        UI
+        UI,
+        Content
     }
 
     property int displayMethod: Content
