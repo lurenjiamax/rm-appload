@@ -13,16 +13,12 @@ Rectangle {
     property var absoluteRoot: _appLoadView
     property var virtualKeyboardRef: null
 
+    readonly property int minimumResolutionWidth: 400
+
     signal requestClose
 
     AppLoadLibrary {
         id: library
-    }
-    function getMinResolutionFor(device) {
-        switch(device) {
-            case "original": return [400, 533];
-            case "move": return [400, 688];
-        }
     }
     function getResolutionOf(device) {
         switch(device) {
@@ -64,26 +60,18 @@ Rectangle {
 
             win.globalWidth = Qt.binding(function() { return _appLoadView.width; })
             win.globalHeight = Qt.binding(function() { return _appLoadView.height; })
-            let deviceAspectRatio, applicationAspectRatio = modelData.aspectRatio;
-            const aspectRatioId = _appLoadView.width < _appLoadView.height ? Math.round(100 * _appLoadView.width / _appLoadView.height) : Math.round(100 * _appLoadView.height / _appLoadView.width);
-            switch(aspectRatioId) {
-                case 75:
-                    deviceAspectRatio = "original";
-                    break;
-                case 56:
-                    deviceAspectRatio = "move";
-                    break
-            }
-            const realAspectRatio = applicationAspectRatio == "auto" ? deviceAspectRatio : applicationAspectRatio;
-            console.log(`Application starting on device with ${deviceAspectRatio} aspect ratio (${aspectRatioId}). Real aspect ratio of the application is going to be ${realAspectRatio}`);
-            [win.minWidth, win.minHeight] = [win.implicitWidth, win.implicitHeight] = getMinResolutionFor(realAspectRatio);
-            [win.scaledContentWidth, win.scaledContentHeight] = getResolutionOf(realAspectRatio);
+            const deviceAspectRatio = _appLoadView.width < _appLoadView.height ? (_appLoadView.width / _appLoadView.height) : (_appLoadView.height / _appLoadView.width);
+            const deviceWidth = Math.min(_appLoadView.height);
+            const realAspectRatio = modelData.aspectRatio || deviceAspectRatio;
+            const width = modelData.width || deviceWidth;
+            console.log(`Application starting on device with ${deviceAspectRatio} aspect ratio. Real aspect ratio of the application is going to be ${realAspectRatio}`);
+            [win.minWidth, win.minHeight] = [win.implicitWidth, win.implicitHeight] = [minimumResolutionWidth, Math.floor(minimumResolutionWidth / realAspectRatio)];
+            [win.scaledContentWidth, win.scaledContentHeight] = [width, Math.floor(width / realAspectRatio)];
 
             win.qtfbKey = qtfbKey;
-
             win.closed.connect(() => win.destroy());
-
         }
+
         if(modelData.externalType == 0 /* INTERNAL */) {
             win.loadApplication(modelData.id);
         } else if(modelData.externalType == 1 /* EXTERNAL_NOGUI */ || modelData.externalType == 2 /* EXTERNAL_QTFB */) {

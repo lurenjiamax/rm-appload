@@ -412,11 +412,11 @@ FocusScope {
             onUnloading: () => {
                 let unloadingFunction;
                 if(supportsScaling) {
-                    unloadingFunction = loader.item.unloading;
+                    unloadingFunction = loader.item?.unloading;
                 } else {
                     unloadingFunction = loaderScaled.item?.unloading;
                 }
-                if(unloadingFunction) unloadingFunction();
+                unloadingFunction?.();
                 root.virtualKeyboardRef.active = false;
                 root.closed();
             }
