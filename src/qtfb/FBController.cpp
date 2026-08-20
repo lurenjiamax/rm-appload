@@ -3,16 +3,12 @@
 #include "log.h"
 
 void FBController::setFramebufferID(int fbId){
-    if(_framebufferID != fbId){
-        QDEBUG << "Re-register framebuffer " << _framebufferID << "as" << fbId;
-        qtfb::management::unregisterController(_framebufferID);
+    if(framebufferID != fbId){
+        QDEBUG << "Re-register framebuffer " << framebufferID << "as" << fbId;
+        qtfb::management::unregisterController(framebufferID);
     }
-    _framebufferID = fbId;
+    framebufferID = fbId;
     qtfb::management::registerController(fbId, QPointer(this));
-}
-
-int FBController::framebufferID() const {
-    return _framebufferID;
 }
 
 bool FBController::active() const {
@@ -27,16 +23,16 @@ void FBController::setActive(bool active){
 }
 
 FBController::~FBController(){
-    qtfb::management::unregisterController(_framebufferID);
+    qtfb::management::unregisterController(framebufferID);
 }
 
 void FBController::paint(QPainter *painter) {
     isMidPaint = true;
-    QDEBUG << "FB Repaint triggered for " << _framebufferID << ". Status: " << _active;
+    QDEBUG << "FB Repaint triggered for " << framebufferID << ". Status: " << _active;
     // Do we have an SHM associated?
     if(this->image && this->_active) {
         // Cool. Paint it.
-        if(_allowScaling && _fillMode != Pad) {
+        if(allowScaling && fillMode != Pad) {
             painter->drawImage(this->convertQTFBRectToScreen(QRect(image->rect())), *image, image->rect());
         } else {
             painter->drawImage((width() - image->width()) / 2, (height() - image->height()) / 2, *image);
@@ -50,7 +46,7 @@ void FBController::paint(QPainter *painter) {
         painter->setFont(font);
         QRect rect(0, 0, width(), height());
         painter->fillRect(rect, QColor(255, 255, 0));
-        painter->drawText(rect, "Unbound Framebuffer " + QString::number(_framebufferID), Qt::AlignCenter | Qt::AlignTop);
+        painter->drawText(rect, "Unbound Framebuffer " + QString::number(framebufferID), Qt::AlignCenter | Qt::AlignTop);
         */
     }
     isMidPaint = false;
@@ -58,7 +54,7 @@ void FBController::paint(QPainter *painter) {
 
 void FBController::associateSHM(QImage *image) {
     this->image = image;
-    int key = _framebufferID;
+    int key = framebufferID;
     QMetaObject::invokeMethod(this, [this, key]() {
         if(!qtfb::management::isControllerAssociated(key)) {
             // The framebuffer connection was terminated as we were
@@ -88,27 +84,18 @@ void FBController::markedUpdate(const QRect &rect) {
     }
 }
 
-void FBController::setAllowScaling(bool a){
-    _allowScaling = a;
-}
-
-bool FBController::allowScaling() const {
-    return _allowScaling;
-}
-
-
 QPoint FBController::convertPointToQTFBPixels(const QPointF &input) {
-    if(_allowScaling && image) {
+    if(allowScaling && image) {
         int fbWidth = image->width();
         int fbHeight = image->height();
 
-        if(_fillMode == Stretch) {
+        if(fillMode == Stretch) {
             return QPoint(
                 (input.x() * fbWidth ) / this->width(),
                 (input.y() * fbHeight) / this->height()
             );
         }
-        else if(_fillMode == Pad) {
+        else if(fillMode == Pad) {
             return QPoint(
                 input.x() - (width()  - fbWidth ) / 2,
                 input.y() - (height() - fbHeight) / 2
@@ -118,8 +105,8 @@ QPoint FBController::convertPointToQTFBPixels(const QPointF &input) {
         float fbAspectRatio = (float)fbWidth / fbHeight;
         bool  widthOrHeight = fbAspectRatio > (float)width() / height();
 
-        if(   (_fillMode == PreserveAspectFit  &&  widthOrHeight)
-           || (_fillMode == PreserveAspectCrop && !widthOrHeight)) {
+        if(   (fillMode == PreserveAspectFit  &&  widthOrHeight)
+           || (fillMode == PreserveAspectCrop && !widthOrHeight)) {
             // scale to fill width, calculate height
             float calculatedHeight = width() / fbAspectRatio;
             return QPoint(
@@ -138,11 +125,11 @@ QPoint FBController::convertPointToQTFBPixels(const QPointF &input) {
 }
 
 QRect FBController::convertQTFBRectToScreen(const QRect &input) {
-    if(_allowScaling && _fillMode != Pad) {
+    if(allowScaling && fillMode != Pad) {
         int fbWidth = image->width();
         int fbHeight = image->height();
 
-        if(_fillMode == Stretch) {
+        if(fillMode == Stretch) {
             return QRect(
                 (input.left() * width()) / image->width(),
                 (input.top() * height()) / image->height(),
@@ -154,8 +141,8 @@ QRect FBController::convertQTFBRectToScreen(const QRect &input) {
         float fbAspectRatio = (float)fbWidth / fbHeight;
         bool  widthOrHeight = fbAspectRatio > (float)width() / height();
 
-        if(   (_fillMode == PreserveAspectFit  &&  widthOrHeight)
-           || (_fillMode == PreserveAspectCrop && !widthOrHeight)) {
+        if(   (fillMode == PreserveAspectFit  &&  widthOrHeight)
+           || (fillMode == PreserveAspectCrop && !widthOrHeight)) {
             // scale to fill width, calculate height
             float calculatedHeight = width() / fbAspectRatio;
             return QRect(
@@ -181,7 +168,7 @@ QRect FBController::convertQTFBRectToScreen(const QRect &input) {
 
 
 void FBController::mousePressEvent(QMouseEvent *me) {
-    if(_framebufferID != -1 && !me->points().isEmpty()) {
+    if(framebufferID != -1 && !me->points().isEmpty()) {
         const QEventPoint &point = me->points()[0];
         QPoint conv = convertPointToQTFBPixels(point.position());
         qtfb::UserInputContents packet {
@@ -191,13 +178,13 @@ void FBController::mousePressEvent(QMouseEvent *me) {
             .y = conv.y(),
             .d = (int) (point.pressure() * 100.0),
         };
-        qtfb::management::forwardUserInput(_framebufferID, &packet);
+        qtfb::management::forwardUserInput(framebufferID, &packet);
     }
     me->accept();
 }
 
 void FBController::mouseMoveEvent(QMouseEvent *me) {
-    if(_framebufferID != -1 && !me->points().isEmpty()) {
+    if(framebufferID != -1 && !me->points().isEmpty()) {
         const QEventPoint &point = me->points()[0];
         QPoint conv = convertPointToQTFBPixels(point.position());
         qtfb::UserInputContents packet {
@@ -207,13 +194,13 @@ void FBController::mouseMoveEvent(QMouseEvent *me) {
             .y = conv.y(),
             .d = (int) (point.pressure() * 100.0),
         };
-        qtfb::management::forwardUserInput(_framebufferID, &packet);
+        qtfb::management::forwardUserInput(framebufferID, &packet);
     }
     me->accept();
 }
 
-static inline void sendKeyEvent(int key, int pkt, qtfb::FBKey _framebufferID) {
-    if(_framebufferID != -1) {
+static inline void sendKeyEvent(int key, int pkt, qtfb::FBKey framebufferID) {
+    if(framebufferID != -1) {
         qtfb::UserInputContents packet {
             .inputType = pkt,
             .devId = 0,
@@ -221,28 +208,28 @@ static inline void sendKeyEvent(int key, int pkt, qtfb::FBKey _framebufferID) {
             .y = 0,
             .d = 0,
         };
-        qtfb::management::forwardUserInput(_framebufferID, &packet);
+        qtfb::management::forwardUserInput(framebufferID, &packet);
     }
 }
 
 void FBController::virtualKeyboardKeyDown(int key) {
-    sendKeyEvent(key, INPUT_VKB_PRESS, _framebufferID);
+    sendKeyEvent(key, INPUT_VKB_PRESS, framebufferID);
 }
 
 void FBController::virtualKeyboardKeyUp(int key) {
-    sendKeyEvent(key, INPUT_VKB_RELEASE, _framebufferID);
+    sendKeyEvent(key, INPUT_VKB_RELEASE, framebufferID);
 }
 
 void FBController::specialKeyDown(int key) {
-    sendKeyEvent(key, INPUT_BTN_PRESS, _framebufferID);
+    sendKeyEvent(key, INPUT_BTN_PRESS, framebufferID);
 }
 
 void FBController::specialKeyUp(int key) {
-    sendKeyEvent(key, INPUT_BTN_RELEASE, _framebufferID);
+    sendKeyEvent(key, INPUT_BTN_RELEASE, framebufferID);
 }
 
 void FBController::mouseReleaseEvent(QMouseEvent *me) {
-    if(_framebufferID != -1) {
+    if(framebufferID != -1) {
         QPoint conv = convertPointToQTFBPixels(me->position());
         qtfb::UserInputContents packet {
             .inputType = INPUT_PEN_RELEASE,
@@ -251,13 +238,13 @@ void FBController::mouseReleaseEvent(QMouseEvent *me) {
             .y = conv.y(),
             .d = 0,
         };
-        qtfb::management::forwardUserInput(_framebufferID, &packet);
+        qtfb::management::forwardUserInput(framebufferID, &packet);
     }
     me->accept();
 }
 
 void FBController::touchEvent(QTouchEvent *me) {
-    if(_framebufferID != -1) {
+    if(framebufferID != -1) {
         int lenPoints = me->points().length();
         if(lenPoints == 5 && !refreshedScreenAlready) {
             emit requestFullRefresh();
@@ -294,7 +281,7 @@ void FBController::touchEvent(QTouchEvent *me) {
                     break;
                 default: break;
             }
-            qtfb::management::forwardUserInput(_framebufferID, &packet);
+            qtfb::management::forwardUserInput(framebufferID, &packet);
         }
     }
     me->accept();

@@ -18,11 +18,11 @@
 class FBController : public QQuickPaintedItem
 {
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
-    Q_PROPERTY(int framebufferID READ framebufferID WRITE setFramebufferID)
-    Q_PROPERTY(bool allowScaling READ allowScaling WRITE setAllowScaling)
+    Q_PROPERTY(int framebufferID MEMBER framebufferID WRITE setFramebufferID)
+    Q_PROPERTY(bool allowScaling MEMBER allowScaling)
     Q_PROPERTY(int refreshMode READ refreshMode NOTIFY refreshModeChanged)
     Q_PROPERTY(QSize framebufferSize READ framebufferSize NOTIFY framebufferSizeChanged)
-    Q_PROPERTY(FillMode fillMode MEMBER _fillMode)
+    Q_PROPERTY(FillMode fillMode MEMBER fillMode)
     Q_OBJECT
 public:
     explicit FBController(QQuickItem *parent = nullptr) : QQuickPaintedItem(parent) { setAcceptTouchEvents(true); setAcceptedMouseButtons((Qt::MouseButtons) 0xFFFFFFFF); setFocusPolicy(Qt::StrongFocus); }
@@ -37,11 +37,17 @@ public:
     };
     Q_ENUMS(FillMode)
 
-    void setFramebufferID(int fbID);
-    int framebufferID() const;
+    enum Rotation
+    {
+        Deg0,
+        DegL90,
+        DegR90,
+        Deg180,
+    };
+    Q_ENUMS(Rotation)
 
-    void setAllowScaling(bool a);
-    bool allowScaling() const;
+    void setFramebufferID(int fbID);
+
     int refreshMode() const;
     QSize framebufferSize() const;
     void setRefreshMode(int refreshMode);
@@ -79,11 +85,11 @@ signals:
     void framebufferSizeChanged();
 
 private:
-    int _framebufferID = -1;
+    int framebufferID = -1;
     int _refreshMode = DEFAULT_WAVEFORM_MODE;
     bool _active = false;
-    bool _allowScaling = false;
-    FillMode _fillMode = Stretch;
+    bool allowScaling = false;
+    FillMode fillMode = Stretch;
 
     bool checkingGestureDragDown = false;
     bool refreshedScreenAlready = false;
