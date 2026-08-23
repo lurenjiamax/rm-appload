@@ -95,4 +95,6 @@ private:
     bool refreshedScreenAlready = false;
 
     QImage *image = nullptr;
+
+    void mouseEvent(QMouseEvent *me, int inputType);
 };

@@ -166,37 +166,42 @@ QRect FBController::convertQTFBRectToScreen(const QRect &input) {
     }
 }
 
-
-void FBController::mousePressEvent(QMouseEvent *me) {
+void FBController::mouseEvent(QMouseEvent *me, int inputType) {
+    bool reject = false;
     if(framebufferID != -1 && !me->points().isEmpty()) {
         const QEventPoint &point = me->points()[0];
         QPoint conv = convertPointToQTFBPixels(point.position());
-        qtfb::UserInputContents packet {
-            .inputType = INPUT_PEN_PRESS,
-            .devId = 0, // TODO - differentiate between pen / eraser.
-            .x = conv.x(),
-            .y = conv.y(),
-            .d = (int) (point.pressure() * 100.0),
-        };
-        qtfb::management::forwardUserInput(framebufferID, &packet);
+
+        // only forward and accept events that fall into the framebuffer display region
+        if(image && (conv.x() < 0 || conv.x() > image->width() || conv.y() < 0 || conv.y() > image->height())) {
+            reject = true;
+        } else {
+            qtfb::UserInputContents packet {
+                .inputType = inputType,
+                .devId = 0, // TODO - differentiate between pen / eraser.
+                .x = conv.x(),
+                .y = conv.y(),
+                .d = (int) (point.pressure() * 100.0),
+            };
+            qtfb::management::forwardUserInput(framebufferID, &packet);
+        }
     }
-    me->accept();
+
+    if(!reject) {
+        me->accept();
+    }
+}
+
+void FBController::mousePressEvent(QMouseEvent *me) {
+    mouseEvent(me, INPUT_PEN_PRESS);
 }
 
 void FBController::mouseMoveEvent(QMouseEvent *me) {
-    if(framebufferID != -1 && !me->points().isEmpty()) {
-        const QEventPoint &point = me->points()[0];
-        QPoint conv = convertPointToQTFBPixels(point.position());
-        qtfb::UserInputContents packet {
-            .inputType = INPUT_PEN_UPDATE,
-            .devId = 0,
-            .x = conv.x(),
-            .y = conv.y(),
-            .d = (int) (point.pressure() * 100.0),
-        };
-        qtfb::management::forwardUserInput(framebufferID, &packet);
-    }
-    me->accept();
+    mouseEvent(me, INPUT_PEN_UPDATE);
+}
+
+void FBController::mouseReleaseEvent(QMouseEvent *me) {
+    mouseEvent(me, INPUT_PEN_RELEASE);
 }
 
 static inline void sendKeyEvent(int key, int pkt, qtfb::FBKey framebufferID) {
@@ -228,21 +233,6 @@ void FBController::specialKeyUp(int key) {
     sendKeyEvent(key, INPUT_BTN_RELEASE, framebufferID);
 }
 
-void FBController::mouseReleaseEvent(QMouseEvent *me) {
-    if(framebufferID != -1) {
-        QPoint conv = convertPointToQTFBPixels(me->position());
-        qtfb::UserInputContents packet {
-            .inputType = INPUT_PEN_RELEASE,
-            .devId = 0,
-            .x = conv.x(),
-            .y = conv.y(),
-            .d = 0,
-        };
-        qtfb::management::forwardUserInput(framebufferID, &packet);
-    }
-    me->accept();
-}
-
 void FBController::touchEvent(QTouchEvent *me) {
     if(framebufferID != -1) {
         int lenPoints = me->points().length();
@@ -253,6 +243,7 @@ void FBController::touchEvent(QTouchEvent *me) {
         }
         for(const QEventPoint& point : me->points()) {
             QPoint conv = convertPointToQTFBPixels(point.position());
+            QPoint pressConv = convertPointToQTFBPixels(point.pressPosition());
             qtfb::UserInputContents packet {
                 .inputType = INPUT_TOUCH_PRESS,
                 .devId = point.id(),
@@ -263,25 +254,30 @@ void FBController::touchEvent(QTouchEvent *me) {
             switch(point.state()) {
                 case QEventPoint::State::Pressed:
                     packet.inputType = INPUT_TOUCH_PRESS;
-                    if(conv.y() < 100) checkingGestureDragDown = true;
+                    if(point.position().y() < 100) checkingGestureDragDown = true;
                     break;
                 case QEventPoint::State::Released:
                     packet.inputType = INPUT_TOUCH_RELEASE;
-                    if(conv.y() > 100 && conv.y() < 400 && checkingGestureDragDown) {
+                    // handle the drag down gesture
+                    if(point.position().y() > 100 && point.position().y() < 400 && checkingGestureDragDown) {
                         emit dragDown();
                     }
+                    checkingGestureDragDown = false;
+                    // handle the force-refresh gesture
                     if(lenPoints == 1) {
                         // Last point was released. Free the force-refresh flag.
                         refreshedScreenAlready = false;
                     }
-                    checkingGestureDragDown = false;
                     break;
                 case QEventPoint::State::Updated:
                     packet.inputType = INPUT_TOUCH_UPDATE;
                     break;
                 default: break;
             }
-            qtfb::management::forwardUserInput(framebufferID, &packet);
+            // only forward touch points to the client that started inside the framebuffer area
+            if(image && pressConv.x() > 0 && pressConv.x() < image->width() && pressConv.y() > 0 && pressConv.y() < image->height()) {
+                qtfb::management::forwardUserInput(framebufferID, &packet);
+            }
         }
     }
     me->accept();
