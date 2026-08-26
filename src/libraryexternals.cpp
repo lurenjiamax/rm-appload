@@ -65,14 +65,8 @@ void appload::library::ExternalApplication::parseManifest() {
     for(auto entry = env.begin(); entry != env.end(); entry++) {
         environment[entry.key()] = entry.value().toString();
     }
-    QString aspectRatio = jsonObject.value("aspectRatio").toString("auto").toLower();
-    if(aspectRatio == "original") {
-        this->aspectRatio = AspectRatio::ORIGINAL;
-    } else if(aspectRatio == "move") {
-        this->aspectRatio = AspectRatio::MOVE;
-    } else if(aspectRatio == "auto") {
-        this->aspectRatio = AspectRatio::AUTO;
-    }
+    auto aspectRatioAndWidth = appload::library::parseAspectRatioAndWidth(jsonObject, filePath);
+    std::tie(this->_aspectRatio, std::ignore) = aspectRatioAndWidth;
 
     valid = !appName.isEmpty() && !execPath.isEmpty();
     if(valid) {
@@ -149,10 +143,9 @@ const appload::vk::Layout *appload::library::ExternalApplication::getVirtualKeyb
     return _virtualKeyboardLayout;
 }
 
+float appload::library::ExternalApplication::aspectRatio() const { return _aspectRatio; }
+
 void appload::library::terminateExternal(qint64 pid) {
     kill(pid, SIGTERM);
     sendPidDiedMessage(pid);
 }
-
-
-appload::library::AspectRatio appload::library::ExternalApplication::getAspectRatio() const { return aspectRatio; }

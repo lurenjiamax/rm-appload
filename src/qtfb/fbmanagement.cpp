@@ -84,18 +84,21 @@ static bool createSHM(qtfb::management::ClientBackend *connection, int shmType, 
             break;
         case FBFMT_RMPP_RGB888:
         case FBFMT_RMPPM_RGB888:
+        case FBFMT_RMPPURE_RGB888:
             shmSize = height * width * 3;
             bpl = 3 * width;
             format = QImage::Format::Format_RGB888;
             break;
         case FBFMT_RMPP_RGBA8888:
         case FBFMT_RMPPM_RGBA8888:
+        case FBFMT_RMPPURE_RGBA8888:
             shmSize = height * width * 4;
             bpl = 4 * width;
             format = QImage::Format::Format_RGBA8888;
             break;
         case FBFMT_RMPP_RGB565:
         case FBFMT_RMPPM_RGB565:
+        case FBFMT_RMPPURE_RGB565:
             shmSize = height * width * 2;
             bpl = 2 * width;
             format = QImage::Format::Format_RGB16;
@@ -153,6 +156,10 @@ static bool createDefaultSHM(qtfb::management::ClientBackend *connection, int sh
         case FBFMT_RMPPM_RGBA8888:
         case FBFMT_RMPPM_RGB565:
             return createSHM(connection, shmType, RMPPM_WIDTH, RMPPM_HEIGHT);
+        case FBFMT_RMPPURE_RGB888:
+        case FBFMT_RMPPURE_RGBA8888:
+        case FBFMT_RMPPURE_RGB565:
+            return createSHM(connection, shmType, RMPPURE_WIDTH, RMPPPURE_HEIGHT);
         default:
             return createSHM(connection, shmType, -1, -1);
     }

@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::{Error, Result, anyhow};
 use libc::{
     c_void, mmap, munmap, sockaddr_un, socket, AF_UNIX, MAP_FAILED, MAP_SHARED, PROT_READ,
     PROT_WRITE, SOCK_SEQPACKET,
@@ -13,16 +13,33 @@ use std::ptr;
 use std::slice;
 
 pub mod constants {
-    pub const DEFAULT_SCENE: u32 = 245209899;
     pub const SOCKET_PATH: &str = "/tmp/qtfb.sock";
+    
     pub const MESSAGE_INITIALIZE: u8 = 0;
     pub const MESSAGE_UPDATE: u8 = 1;
     pub const MESSAGE_CUSTOM_INITIALIZE: u8 = 2;
+    pub const MESSAGE_TERMINATE: u8 = 3;
+    pub const MESSAGE_USER_INPUT: u8 = 4;
+    pub const MESSAGE_SET_REFRESH_MODE: u8 = 5;
+    pub const MESSAGE_REQUEST_FULL_REFRESH: u8 = 6;
+
     pub const UPDATE_ALL: i32 = 0;
     pub const UPDATE_PARTIAL: i32 = 1;
+
     pub const FBFMT_RM2FB: u8 = 0;
     pub const FBFMT_RMPP_RGB888: u8 = 1;
     pub const FBFMT_RMPP_RGBA8888: u8 = 2;
+    
+    #[repr(i32)]
+    #[derive(Debug, Clone, Copy)]
+    pub enum RefreshMode {
+        Ufast = 0,
+        Fast = 1,
+        Animate = 2,
+        Content = 3,
+        Ui = 4,
+    }
+
 
     pub type FBKey = u32;
 }
@@ -63,10 +80,25 @@ struct UpdateRegionMessageContents {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct UserInputContents {
+    input_type: i32,
+    dev_id: i32,
+    x: i32,
+    y: i32,
+    d: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Null;
+
+#[repr(C)]
 union ClientMessageContents {
     init: InitMessageContents,
     update: UpdateRegionMessageContents,
     custom_init: CustomInitMessageContents,
+    refresh_mode: constants::RefreshMode,
+    null: Null,
 }
 
 #[repr(C)]
@@ -76,9 +108,20 @@ struct ClientMessage {
 }
 
 #[repr(C)]
+union ServerMessageContents {
+    init: InitMessageResponseContents,
+    user_input: UserInputContents,
+}
+
+#[derive(Clone, Debug)]
+pub enum UserFacingServerMessageContents {
+    UserInput(UserInputContents),
+}
+
+#[repr(C)]
 struct ServerMessage {
     msg_type: u8,
-    init: InitMessageResponseContents,
+    contents: ServerMessageContents,
 }
 
 pub struct ClientConnection<'a> {
@@ -158,10 +201,12 @@ impl<'a> ClientConnection<'a> {
 
         let mut server_message = ServerMessage {
             msg_type: 0,
-            init: InitMessageResponseContents {
-                shm_key_defined: 0,
-                shm_size: 0,
-            },
+            contents: ServerMessageContents {
+                init: InitMessageResponseContents {
+                    shm_key_defined: 0,
+                    shm_size: 0,
+                },
+            }
         };
 
         let recv_res = unsafe {
@@ -177,13 +222,16 @@ impl<'a> ClientConnection<'a> {
             return Err(Error::new(io::Error::last_os_error()));
         }
 
-        let shm_name = format!("/dev/shm/qtfb_{}", server_message.init.shm_key_defined);
+        let shm_name = unsafe {
+            format!("/dev/shm/qtfb_{}", server_message.contents.init.shm_key_defined)
+        };
+
         let shm_fd = OpenOptions::new().read(true).write(true).open(&shm_name)?;
 
         let shm_ptr = unsafe {
             mmap(
                 ptr::null_mut(),
-                server_message.init.shm_size,
+                server_message.contents.init.shm_size,
                 PROT_READ | PROT_WRITE,
                 MAP_SHARED,
                 shm_fd.as_raw_fd(),
@@ -196,9 +244,45 @@ impl<'a> ClientConnection<'a> {
         }
 
         let shm =
-            unsafe { slice::from_raw_parts_mut(shm_ptr as *mut u8, server_message.init.shm_size) };
+            unsafe {slice::from_raw_parts_mut(shm_ptr as *mut u8, server_message.contents.init.shm_size) };
 
         Ok(Self { fd, shm })
+    }
+
+    pub fn poll_server_message(&self) -> Result<UserFacingServerMessageContents> {
+        let mut server_message = ServerMessage {
+            msg_type: 0,
+            contents: ServerMessageContents {
+                init: InitMessageResponseContents {
+                    shm_key_defined: 0,
+                    shm_size: 0,
+                },
+            }
+        };
+
+        let recv_res = unsafe {
+            libc::recv(
+                self.fd,
+                &mut server_message as *mut _ as *mut c_void,
+                mem::size_of::<ServerMessage>(),
+                0,
+            )
+        };
+
+        if recv_res < 1 {
+            return Err(Error::new(io::Error::last_os_error()));
+        }
+
+        unsafe {
+            match server_message.msg_type {
+                constants::MESSAGE_USER_INPUT => Ok(
+                    UserFacingServerMessageContents::UserInput(
+                        server_message.contents.user_input
+                    )
+                ),
+                msg_type => Err(anyhow!("Unknown server message type {msg_type}"))
+            }
+        }
     }
 
     pub fn send_complete_update(&self) -> io::Result<()> {
@@ -233,6 +317,22 @@ impl<'a> ClientConnection<'a> {
         };
 
         self.send_message(&update_message)
+    }
+
+    pub fn request_full_request(&self) -> io::Result<()> {
+        self.send_message(&ClientMessage {
+            msg_type: constants::MESSAGE_REQUEST_FULL_REFRESH,
+            contents: ClientMessageContents{ null: Null }
+        })
+    }
+
+    pub fn set_refresh_mode(&self, refresh_mode: constants::RefreshMode) -> io::Result<()> {
+        self.send_message(&ClientMessage {
+            msg_type: constants::MESSAGE_SET_REFRESH_MODE,
+            contents: ClientMessageContents{
+                refresh_mode,
+            }
+        })
     }
 
     fn send_message(&self, msg: &ClientMessage) -> io::Result<()> {

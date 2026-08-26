@@ -25,10 +25,11 @@ class AppLoadApplication : public QObject {
     Q_PROPERTY(QString id READ id CONSTANT)
     Q_PROPERTY(QString name READ name CONSTANT)
     Q_PROPERTY(QString icon READ icon CONSTANT)
-    Q_PROPERTY(bool supportsScaling READ supportsScaling)
-    Q_PROPERTY(bool canHaveMultipleFrontends READ canHaveMultipleFrontends)
-    Q_PROPERTY(int externalType READ externalType) // 0 - not external, 1 - external (non-graphics), 2 - external (qtfb)
-    Q_PROPERTY(QString aspectRatio READ aspectRatio CONSTANT)
+    Q_PROPERTY(bool supportsScaling READ supportsScaling CONSTANT)
+    Q_PROPERTY(bool canHaveMultipleFrontends READ canHaveMultipleFrontends CONSTANT)
+    Q_PROPERTY(int externalType READ externalType CONSTANT) // 0 - not external, 1 - external (non-graphics), 2 - external (qtfb)
+    Q_PROPERTY(float aspectRatio READ aspectRatio CONSTANT)
+    Q_PROPERTY(int width READ width CONSTANT)
     Q_PROPERTY(bool disablesWindowedMode READ disablesWindowedMode CONSTANT)
     Q_PROPERTY(const appload::vk::Layout *const virtualKeyboardLayout READ virtualKeyboardLayout CONSTANT)
 
@@ -42,7 +43,8 @@ public:
         bool supportsScaling,
         bool canHaveMultipleFrontends,
         int externalType,
-        appload::library::AspectRatio aspectRatio,
+        float aspectRatio,
+        int width,
         bool disablesWindowedMode,
         const appload::vk::Layout *vkLayout,
         QObject *parent = nullptr
@@ -55,13 +57,30 @@ public:
         _canHaveMultipleFrontends(canHaveMultipleFrontends),
         _externalType(externalType),
         _aspectRatio(aspectRatio),
+        _width(width),
         _disablesWindowedMode(disablesWindowedMode),
         _virtualKeyboardLayout(vkLayout) {}
+    AppLoadApplication(
+        const AppLoadApplication &other,
+        QObject *parent = nullptr
+    ):
+        QObject(parent),
+        _id(other._id),
+        _name(other._name),
+        _icon(other._icon),
+        _supportsScaling(other._supportsScaling),
+        _canHaveMultipleFrontends(other._canHaveMultipleFrontends),
+        _externalType(other._externalType),
+        _aspectRatio(other._aspectRatio),
+        _width(other._width),
+        _disablesWindowedMode(other._disablesWindowedMode),
+        _virtualKeyboardLayout(other._virtualKeyboardLayout) {}
 
     QString id() const { return _id; }
     QString name() const { return _name; }
     QString icon() const { return _icon; }
-    QString aspectRatio() const { return appload::library::aspectRatioToString(_aspectRatio); }
+    float aspectRatio() const { return _aspectRatio; }
+    int width() const { return _width; }
     const appload::vk::Layout *virtualKeyboardLayout() const { return _virtualKeyboardLayout; }
     bool supportsScaling() const { return _supportsScaling; }
     bool canHaveMultipleFrontends() const { return _canHaveMultipleFrontends; }
@@ -76,7 +95,8 @@ private:
     bool _supportsVirtualKeyboard;
     bool _canHaveMultipleFrontends;
     int _externalType;
-    appload::library::AspectRatio _aspectRatio;
+    float _aspectRatio;
+    int _width;
     bool _disablesWindowedMode;
     appload::vk::Layout const *_virtualKeyboardLayout;
 };
@@ -142,7 +162,8 @@ public:
                                                         entry.second->supportsScaling(),
                                                         entry.second->canHaveMultipleFrontends(),
                                                         INTERNAL,
-                                                        appload::library::AspectRatio::AUTO,
+                                                        entry.second->aspectRatio(),
+                                                        entry.second->width(),
                                                         false,
                                                         NULL,
                                                         this));
@@ -151,10 +172,11 @@ public:
             _applications.append(new AppLoadApplication(entry.first,
                                                         entry.second->getAppName(),
                                                         entry.second->getIconPath(),
-                                                        false,
+                                                        entry.second->aspectRatio() == 0, // do not constrain window size if aspectRatio is set to "auto"
                                                         true,
                                                         entry.second->isQTFB() ? EXTERNAL_QTFB : EXTERNAL_NOGUI,
-                                                        entry.second->getAspectRatio(),
+                                                        entry.second->aspectRatio(),
+                                                        0, // Let QTFB do the scaling here.
                                                         entry.second->disablesWindowedMode(),
                                                         entry.second->getVirtualKeyboardLayout(),
                                                         this));
@@ -180,7 +202,7 @@ private:
 
     static AppLoadApplication *applicationAt(QQmlListProperty<AppLoadApplication> *list, qsizetype index) {
         auto *lib = qobject_cast<AppLoadLibrary *>(list->object);
-        return lib ? lib->_applications.at(index) : nullptr;
+        return lib ? new AppLoadApplication(*lib->_applications.at(index), nullptr) : nullptr;
     }
 
     static void clearApplications(QQmlListProperty<AppLoadApplication> *list) {

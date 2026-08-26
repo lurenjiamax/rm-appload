@@ -162,10 +162,8 @@ FocusScope {
             startY = mouse.y
 
             if(!supportsScaling) {
-                let scale = Math.min(height / root.globalHeight, width / root.globalWidth);
-
-                width = root.globalWidth * scale
-                height = root.globalHeight * scale + topbar.height
+                let scale = width / root.scaledContentWidth
+                height = root.scaledContentHeight * scale
             }
 
             root.width = width;
@@ -353,43 +351,11 @@ FocusScope {
 
         FBController {
             id: windowCanvas
-            property var deviceAspectRatio: root.globalWidth / root.globalHeight
-            property var contentAspectRatio: root.scaledContentWidth / root.scaledContentHeight
-            states: [
-                State {
-                    name: "a"
-                    when: windowCanvas.deviceAspectRatio == windowCanvas.contentAspectRatio
-                    PropertyChanges {
-                        target: windowCanvas
-                        width: parent.width
-                        height: parent.height
-                    }
-                },
-                State {
-                    name: "b"
-                    when: windowCanvas.deviceAspectRatio > windowCanvas.contentAspectRatio
-
-                    PropertyChanges {
-                        target: windowCanvas
-                        height: parent.height
-                        width: windowCanvas.contentAspectRatio * parent.height
-                    }
-                },
-                State {
-                    name: "c"
-                    when: windowCanvas.contentAspectRatio > windowCanvas.deviceAspectRatio
-
-                    PropertyChanges {
-                        target: windowCanvas
-                        width: parent.width
-                        height: parent.width / windowCanvas.contentAspectRatio
-                    }
-                }
-            ]
-            anchors.centerIn: parent
+            anchors.fill: parent
 
             visible: qtfbKey != -1
             allowScaling: true
+            fillMode: FBController.PreserveAspectFit
             framebufferID: qtfbKey
             focus: qtfbKey != -1
 
@@ -411,11 +377,11 @@ FocusScope {
             onUnloading: () => {
                 let unloadingFunction;
                 if(supportsScaling) {
-                    unloadingFunction = loader.item.unloading;
+                    unloadingFunction = loader.item?.unloading;
                 } else {
                     unloadingFunction = loaderScaled.item?.unloading;
                 }
-                if(unloadingFunction) unloadingFunction();
+                unloadingFunction?.();
                 root.virtualKeyboardRef.active = false;
                 root.closed();
             }
