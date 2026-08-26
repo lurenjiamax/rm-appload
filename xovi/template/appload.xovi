@@ -1,4 +1,4 @@
-version     0.5.1
+version     0.5.2
 
 depends-on   qt-resource-rebuilder:0.3.0
 
@@ -6,4 +6,13 @@ condition    _ZN3csl10devicelock10DeviceLockC1Ev
 import?      qt-resource-rebuilder$qmldiff_add_external_diff
 import?      qt-resource-rebuilder$qmldiff_disable_slots_while_processing
 import?      qt-resource-rebuilder$qmldiff_enable_slots_while_processing
-resource     apploadDiff:appload.qmd
+resource     apploadDiff326327:qmd/appload_3_26_3_27_x.qmd
+resource     apploadDiff328:qmd/appload_3_28_x.qmd
+
+global-meta
+    id = "appload"
+    name = "rM AppLoad"
+    description = "Application loader extension"
+    architectures = "aarch64,arm"
+    xochitlVersions = "3.26.0.68,3.27.x.x,3.28.x.x"
+end

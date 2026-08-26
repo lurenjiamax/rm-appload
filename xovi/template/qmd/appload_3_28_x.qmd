@@ -1,0 +1,177 @@
+VERSION 3.28.x.x
+
+AFFECT /qt/qml/xofm/modules/gestures/global/qml/GesturesWindow.qml
+    TRAVERSE BaseView > Item:contentItem
+        REMOVE TouchAreaSwipeFilter[.objectName="global-swipe-from-top"]
+    END TRAVERSE
+END AFFECT
+AFFECT /qml/device/view/navigator/Navigator.qml
+    IMPORT net.asivery.AppLoad 1.0
+    IMPORT xofm.libs.gestures 1.0
+    TRAVERSE FocusScope
+        LOCATE BEFORE Loader#searchLoader
+        INSERT {
+            property alias appLoadView: _appLoadView
+            required property var apploadVKB
+            required property var apploadWindowParent
+        }
+
+        LOCATE AFTER Loader#searchLoader
+        INSERT {
+            Loader {
+                id: _appLoadView
+                anchors.fill: parent
+                visible: false
+                active: true
+                source: "qrc:/appload/qml/appload.qml"
+
+                onLoaded: {
+                    _appLoadView.item.absoluteRoot = apploadWindowParent;
+                    _appLoadView.item.virtualKeyboardRef = apploadVKB;
+                }
+            }
+
+            Connections {
+                target: _appLoadView.item
+
+                function onRequestClose() {
+                    _appLoadView.visible = false;
+                }
+            }
+        }
+    END TRAVERSE
+END AFFECT
+
+AFFECT /qml/device/view/main/MainView.qml
+    TRAVERSE Background
+        TRAVERSE ?#navigator
+            LOCATE BEFORE ALL
+            INSERT {
+                apploadVKB: _apploadVirtualKeyboard
+                apploadWindowParent: windowParent
+            }
+        END TRAVERSE
+        LOCATE AFTER ALL
+        INSERT {
+            Item {
+                id: windowParent
+                anchors.fill: parent
+            }
+            Loader {
+                id: _apploadVirtualKeyboard
+
+                property var layout: null
+                property var config: null
+                width: parent.width
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                active: false
+                visible: active
+                source: "qrc:/appload/qml/virtualKeyboard/Keyboard.qml"
+
+                onLoaded: () => {
+                    console.log("Rebuild keyboard data: ", _apploadVirtualKeyboard.layout, _apploadVirtualKeyboard.config);
+                    _apploadVirtualKeyboard.item.rebuildKeyboard(_apploadVirtualKeyboard.layout, _apploadVirtualKeyboard.config);
+                }
+            }
+        }
+    END TRAVERSE
+END AFFECT
+
+AFFECT /qml/device/view/navigator/Sidebar.qml
+    TRAVERSE FocusScope > ColumnLayout#filterColumn
+        LOCATE AFTER ArkControls.SidebarFoldout#integrationsFoldout
+        INSERT {
+            ArkControls.SidebarItem {
+                id: openAppLoad
+                objectName: "openAppLoad"
+                text: qsTr("AppLoad")
+                iconSource: "qrc:/appload/icons/appload"
+                enabled: true
+                onClicked: {
+                    root.toggle();
+                    navigator.appLoadView.visible = true;
+                }
+                Layout.preferredHeight: Common.Values.navigatorSidebarItemHeight
+                Layout.preferredWidth: parent.width
+            }
+        }
+    END TRAVERSE
+END AFFECT
+
+
+; Reach within the appload files themselves:
+AFFECT /appload/qml/window.qml
+    IMPORT xofm.libs.gestures 1.0
+    IMPORT xofm.libs.devicescreen 1.0
+    IMPORT common 1.0
+    TRAVERSE FocusScope
+        TRAVERSE Rectangle#mainWindowView
+            REPLACE MouseArea#qmldiffEventBlocker WITH {
+                MouseArea {
+                    anchors.fill: parent
+                }
+                TouchArea {
+                    anchors.fill: parent
+                    TouchAreaSwipeFilter {
+                        objectName: "close-appload-application"
+                        direction: Qt.point(0, 1)
+                        area: Qt.rect(0, 0, parent.width, Values.pixelsPerCm)
+                        enabled: !coord.disableGestures
+                        onTriggered: swipeFromTheTop()
+                    }
+                }
+            }
+        END TRAVERSE
+        REMOVE Button#qmldiffReplaceMeButton
+    END TRAVERSE
+END AFFECT
+
+AFFECT /appload/qml/window.qml
+    IMPORT xofm.libs.ghostbuster 1.0
+    IMPORT xofm.libs.epaper 1.0 Epaper
+    TRAVERSE FocusScope > Rectangle > FBController
+        LOCATE BEFORE ALL
+        INSERT {
+            Epaper.ScreenModeItem {
+                anchors.fill: parent
+                visible: !root.minimized && windowCanvas.active
+                objectName: "appload-window"
+                mode: [
+                    Epaper.ScreenModeItem.Pen,
+                    Epaper.ScreenModeItem.Mono,
+                    Epaper.ScreenModeItem.Animation,
+                    Epaper.ScreenModeItem.Content,
+                    Epaper.ScreenModeItem.UI,
+                ][windowCanvas.refreshMode]
+            }
+
+            onRequestFullRefresh: () => {
+                ghostBuster.forceClearNow("5-finger gesture");
+            }
+        }
+    END TRAVERSE
+END AFFECT
+
+AFFECT /qt/qml/net/asivery/ApploadUtils/DisplayMethodArea.qml
+    IMPORT xofm.libs.epaper 1.0 Epaper
+    REDEFINE Item
+        LOCATE BEFORE ALL
+        REPLACE { Item } WITH { Epaper.ScreenModeItem }
+    END REDEFINE
+
+    LOCATE BEFORE ALL
+    TRAVERSE Epaper.ScreenModeItem
+        LOCATE AFTER ALL
+        INSERT {
+            mode: [
+                Epaper.ScreenModeItem.Pen,
+                Epaper.ScreenModeItem.Mono,
+                Epaper.ScreenModeItem.Animation,
+                Epaper.ScreenModeItem.UI,
+                Epaper.ScreenModeItem.Content
+            ][displayMethod]
+        }
+        REMOVE onDisplayMethodChanged
+    END TRAVERSE
+END AFFECT
