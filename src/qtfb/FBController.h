@@ -51,6 +51,7 @@ public:
     int refreshMode() const;
     QSize framebufferSize() const;
     void setRefreshMode(int refreshMode);
+    void setAllowScaling(bool allowScaling);
 
     bool active() const;
 

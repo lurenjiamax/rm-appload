@@ -22,6 +22,12 @@ void FBController::setActive(bool active){
     markedUpdate();
 }
 
+void FBController::setAllowScaling(bool allowScaling) {
+    this->allowScaling = allowScaling;
+    emit framebufferSizeChanged();
+    markedUpdate();
+}
+
 FBController::~FBController(){
     qtfb::management::unregisterController(framebufferID);
 }
