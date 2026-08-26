@@ -60,6 +60,21 @@ public:
         _width(width),
         _disablesWindowedMode(disablesWindowedMode),
         _virtualKeyboardLayout(vkLayout) {}
+    AppLoadApplication(
+        const AppLoadApplication &other,
+        QObject *parent = nullptr
+    ):
+        QObject(parent),
+        _id(other._id),
+        _name(other._name),
+        _icon(other._icon),
+        _supportsScaling(other._supportsScaling),
+        _canHaveMultipleFrontends(other._canHaveMultipleFrontends),
+        _externalType(other._externalType),
+        _aspectRatio(other._aspectRatio),
+        _width(other._width),
+        _disablesWindowedMode(other._disablesWindowedMode),
+        _virtualKeyboardLayout(other._virtualKeyboardLayout) {}
 
     QString id() const { return _id; }
     QString name() const { return _name; }
@@ -187,7 +202,7 @@ private:
 
     static AppLoadApplication *applicationAt(QQmlListProperty<AppLoadApplication> *list, qsizetype index) {
         auto *lib = qobject_cast<AppLoadLibrary *>(list->object);
-        return lib ? lib->_applications.at(index) : nullptr;
+        return lib ? new AppLoadApplication(*lib->_applications.at(index), nullptr) : nullptr;
     }
 
     static void clearApplications(QQmlListProperty<AppLoadApplication> *list) {
