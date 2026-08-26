@@ -117,4 +117,5 @@ namespace appload::library {
     appload::library::LoadedApplication *get(const QString &id);
     const std::map<QString, appload::library::LoadedApplication*> &getRef();
     const std::map<QString, appload::library::ExternalApplication*> &getExternals();
+    std::tuple<float, int> parseAspectRatioAndWidth(const QJsonObject&, const QString&);
 };

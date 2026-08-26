@@ -157,7 +157,7 @@ public:
             _applications.append(new AppLoadApplication(entry.first,
                                                         entry.second->getAppName(),
                                                         entry.second->getIconPath(),
-                                                        false,
+                                                        entry.second->aspectRatio() == 0, // do not constrain window size if aspectRatio is set to "auto"
                                                         true,
                                                         entry.second->isQTFB() ? EXTERNAL_QTFB : EXTERNAL_NOGUI,
                                                         entry.second->aspectRatio(),
