@@ -22,6 +22,10 @@ QString getLocale() {
         qDebug() << "[AppLoad] Using locale from environment variable APP_LOCALE:" << env.value("APP_LOCALE");
         return env.value("APP_LOCALE");
     }
+    if (env.contains("LANG") && !env.value("LANG").isEmpty()) {
+        qDebug() << "[AppLoad] Using locale from environment variable LANG:" << env.value("LANG");
+        return env.value("LANG");
+    }
 
     QString configFile = "/data/xochitl.conf";
     // Somehow QSettings doesn't work with this file 
