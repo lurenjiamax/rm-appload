@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QQmlApplicationEngine>
 #include <QString>
+#include <qqml.h>
 
 #include "qtfb/FBController.h"
 #include "qtfb/fbmanagement.h"
@@ -72,17 +73,34 @@ static void addVersionedAppLoadDiff() {
     }
 }
 
+static void registerAppLoadQmlTypes() {
+    qmlRegisterModule("net.asivery.AppLoad", 1, 0);
+    qmlRegisterModule("net.asivery.Framebuffer", 1, 0);
+
+    const int appLoadTypeId = qmlRegisterType<AppLoad>("net.asivery.AppLoad", 1, 0, "AppLoad");
+    const int coordinatorTypeId = qmlRegisterType<AppLoadCoordinator>("net.asivery.AppLoad", 1, 0, "AppLoadCoordinator");
+    const int libraryTypeId = qmlRegisterType<AppLoadLibrary>("net.asivery.AppLoad", 1, 0, "AppLoadLibrary");
+    const int applicationTypeId = qmlRegisterType<AppLoadApplication>("net.asivery.AppLoad", 1, 0, "AppLoadApplication");
+    const int fbControllerTypeId = qmlRegisterType<FBController>("net.asivery.Framebuffer", 1, 0, "FBController");
+    const int launcherTypeId = qmlRegisterSingletonType<AppLoadLauncher>("net.asivery.AppLoad", 1, 0, "AppLoadLauncher", &AppLoadLauncher::qmlSingleton);
+
+    QDEBUG << "Registered QML modules:"
+           << "net.asivery.AppLoad"
+           << appLoadTypeId
+           << coordinatorTypeId
+           << libraryTypeId
+           << applicationTypeId
+           << launcherTypeId
+           << "net.asivery.Framebuffer"
+           << fbControllerTypeId;
+}
+
 extern "C" {
     static const char *applicationRoot;
     void _xovi_construct() {
         applicationRoot = Environment->getExtensionDirectory("appload");
 
-        qmlRegisterType<AppLoad>("net.asivery.AppLoad", 1, 0, "AppLoad");
-        qmlRegisterType<AppLoadCoordinator>("net.asivery.AppLoad", 1, 0, "AppLoadCoordinator");
-        qmlRegisterType<AppLoadLibrary>("net.asivery.AppLoad", 1, 0, "AppLoadLibrary");
-        qmlRegisterType<AppLoadApplication>("net.asivery.AppLoad", 1, 0, "AppLoadApplication");
-        qmlRegisterType<FBController>("net.asivery.Framebuffer", 1, 0, "FBController");
-        qmlRegisterSingletonType<AppLoadLauncher>("net.asivery.AppLoad", 1, 0, "AppLoadLauncher", &AppLoadLauncher::qmlSingleton);
+        registerAppLoadQmlTypes();
         addVersionedAppLoadDiff();
 
         // AppLoad requires qt-resource-rebuilder to edit its own source code once it's being loaded

@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <qqml.h>
 
 #include "AppLoadCoordinator.h"
 #include "EmuOnly.h"
@@ -49,6 +50,30 @@ void loadTestingModules(){
 
 }
 
+static void registerAppLoadQmlTypes() {
+    qmlRegisterModule("net.asivery.AppLoad", 1, 0);
+    qmlRegisterModule("net.asivery.Framebuffer", 1, 0);
+
+    const int appLoadTypeId = qmlRegisterType<AppLoad>("net.asivery.AppLoad", 1, 0, "AppLoad");
+    const int coordinatorTypeId = qmlRegisterType<AppLoadCoordinator>("net.asivery.AppLoad", 1, 0, "AppLoadCoordinator");
+    const int libraryTypeId = qmlRegisterType<AppLoadLibrary>("net.asivery.AppLoad", 1, 0, "AppLoadLibrary");
+    const int applicationTypeId = qmlRegisterType<AppLoadApplication>("net.asivery.AppLoad", 1, 0, "AppLoadApplication");
+    const int fbControllerTypeId = qmlRegisterType<FBController>("net.asivery.Framebuffer", 1, 0, "FBController");
+    const int launcherTypeId = qmlRegisterSingletonType<AppLoadLauncher>("net.asivery.AppLoad", 1, 0, "AppLoadLauncher", &AppLoadLauncher::qmlSingleton);
+    const int emuOnlyTypeId = qmlRegisterSingletonType<AppLoadEmuOnly>("net.asivery.AppLoad", 1, 0, "AppLoadEmuOnly", &AppLoadEmuOnly::qmlSingleton);
+
+    QDEBUG << "Registered QML modules:"
+           << "net.asivery.AppLoad"
+           << appLoadTypeId
+           << coordinatorTypeId
+           << libraryTypeId
+           << applicationTypeId
+           << launcherTypeId
+           << emuOnlyTypeId
+           << "net.asivery.Framebuffer"
+           << fbControllerTypeId;
+}
+
 int main(int argc, char *argv[])
 {
     loadTestingModules();
@@ -58,13 +83,7 @@ int main(int argc, char *argv[])
     appload::library::loadApplications();
     qtfb::management::start();
 
-    qmlRegisterType<AppLoad>("net.asivery.AppLoad", 1, 0, "AppLoad");
-    qmlRegisterType<AppLoadCoordinator>("net.asivery.AppLoad", 1, 0, "AppLoadCoordinator");
-    qmlRegisterType<AppLoadLibrary>("net.asivery.AppLoad", 1, 0, "AppLoadLibrary");
-    qmlRegisterType<AppLoadApplication>("net.asivery.AppLoad", 1, 0, "AppLoadApplication");
-    qmlRegisterType<FBController>("net.asivery.Framebuffer", 1, 0, "FBController");
-    qmlRegisterSingletonType<AppLoadLauncher>("net.asivery.AppLoad", 1, 0, "AppLoadLauncher", &AppLoadLauncher::qmlSingleton);
-    qmlRegisterSingletonType<AppLoadEmuOnly>("net.asivery.AppLoad", 1, 0, "AppLoadEmuOnly", &AppLoadEmuOnly::qmlSingleton);
+    registerAppLoadQmlTypes();
     engine.load(QUrl(QStringLiteral("./_start.qml")));
 
     return a.exec();
